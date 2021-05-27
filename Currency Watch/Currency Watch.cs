@@ -21,9 +21,16 @@ namespace cAlgo
     public class CurrencyWatch : Indicator
     {
 
-        #region Enums
+        #region Enums and Class
 
         // --> Eventuali enumeratori li mettiamo qui
+
+        public class CurrencyInformation {
+
+            public string Currency = "";
+            public double LastValue = 0;
+
+        }
 
         #endregion
 
@@ -37,7 +44,7 @@ namespace cAlgo
         /// <summary>
         /// La versione del prodotto, progressivo, utilie per controllare gli aggiornamenti se viene reso disponibile sul sito ctrader.guru
         /// </summary>
-        public const string VERSION = "1.0.1";
+        public const string VERSION = "1.0.2";
 
         #endregion
 
@@ -58,7 +65,7 @@ namespace cAlgo
         [Output("USD", LineColor = "Red")]
         public IndicatorDataSeries USD { get; set; }
 
-        [Output("GBP", LineColor = "Black")]
+        [Output("GBP", LineColor = "DarkGray")]
         public IndicatorDataSeries GBP { get; set; }
 
         [Output("JPY", LineColor = "DarkViolet")]
@@ -81,6 +88,9 @@ namespace cAlgo
         #region Property
 
         int havecurr = 0;
+
+        CurrencyInformation bestCurrency = new CurrencyInformation();
+        CurrencyInformation worstCurrency = new CurrencyInformation();
 
         double EURUSDopenday = -1;
         double EURGBPopenday = -1;
@@ -216,7 +226,7 @@ namespace cAlgo
         {
 
             // --> Stampo nei log la versione corrente
-            Print("{0} : {1}", NAME, VERSION);
+            Print("{0} : {1}", NAME, VERSION);            
 
         }
 
@@ -226,11 +236,11 @@ namespace cAlgo
         /// <param name="index">L'indice della candela in elaborazione</param>
         public override void Calculate(int index)
         {
-            
-            if (Bars.TimeFrame != TimeFrame.Hour)
+
+            if (Bars.TimeFrame > TimeFrame.Hour)
             {
 
-                if (_canDraw()) Chart.DrawStaticText("MyError", "PLEASE, USE THIS INDICATOR WITH TIMEFRAME 1H", VerticalAlignment.Center, HorizontalAlignment.Center, Color.Red);
+                if (_canDraw()) Chart.DrawStaticText("MyError", "PLEASE, USE THIS INDICATOR WITH TIMEFRAME UP TO 1H", VerticalAlignment.Center, HorizontalAlignment.Center, Color.Red);
 
                 return;
 
@@ -238,13 +248,16 @@ namespace cAlgo
             else if (havecurr == -1)
             {
 
-                if (_canDraw()) Chart.DrawStaticText("MyError", "NOT SUPPORT THIS CROSS, ONLY MAJOR CURRENCY : EUR;USD;GBP;JPY;CAD;AUD;CHF;NZD", VerticalAlignment.Center, HorizontalAlignment.Center, Color.Red);
+                if (_canDraw())
+                    Chart.DrawStaticText("MyError", "NOT SUPPORT THIS CROSS, ONLY MAJOR CURRENCY : EUR;USD;GBP;JPY;CAD;AUD;CHF;NZD", VerticalAlignment.Center, HorizontalAlignment.Center, Color.Red);
 
                 return;
 
             }
 
             havecurr = -1;
+            bestCurrency = new CurrencyInformation();
+            worstCurrency = new CurrencyInformation();
 
             SetValue(EUR, index, "EUR", EURcross);
             SetValue(USD, index, "USD", USDcross);
@@ -254,12 +267,21 @@ namespace cAlgo
             SetValue(CHF, index, "CHF", CHFcross);
             SetValue(AUD, index, "AUD", AUDcross);
             SetValue(NZD, index, "NZD", NZDcross);
+                        
+            DrawBestandWorst();
 
         }
 
         #endregion
 
         #region Private Methods
+        
+        private T GetAttributeFrom<T>(string propertyName)
+        {
+            var attrType = typeof(T);
+            var property = this.GetType().GetProperty(propertyName);
+            return (T)property.GetCustomAttributes(attrType, false).GetValue(0);
+        }
 
         private bool _canDraw()
         {
@@ -538,6 +560,7 @@ namespace cAlgo
         {
 
             double crosspips = 0.0;
+
             // --> Devo fare un ciclio per valutare i cross
 
             foreach (string onecross in cross)
@@ -552,7 +575,7 @@ namespace cAlgo
 
                     Bars tmpcrosssr = MarketData.GetBars(TimeFrame, tmpcross.Name);
 
-                    int index2 = GetIndexByDate(tmpcrosssr, Bars.OpenTimes[index]);
+                    int index2 = tmpcrosssr.OpenTimes.GetIndexByExactTime(Bars.OpenTimes[index]);
 
                     if (tmpcrosssr.OpenTimes[index2].Hour == EndOfDay && tmpcrosssr.OpenTimes[index2].Minute >= 0 && tmpcrosssr.OpenTimes[index2].Minute <= 1)
                     {
@@ -611,7 +634,7 @@ namespace cAlgo
                     else
                     {
 
-                        Print(string.Format("Errore : {0} non esiste", CROSSSymbol));
+                        Print(string.Format("Error : {0} not exist", CROSSSymbol));
 
                     }
 
@@ -628,16 +651,55 @@ namespace cAlgo
 
             View[index] = crosspips;
 
+            if (bestCurrency.LastValue == 0 || View[index] > bestCurrency.LastValue)
+            {
+
+                bestCurrency.LastValue = View[index];
+                bestCurrency.Currency = CROSSSymbol;
+                
+            }
+            else if (worstCurrency.LastValue == 0 || View[index] < worstCurrency.LastValue)
+            {
+
+                worstCurrency.LastValue = View[index];
+                worstCurrency.Currency = CROSSSymbol;
+
+            }
+
             havecurr = 1;
 
         }
 
-        private int GetIndexByDate(Bars series, DateTime time)
+        private void DrawBestandWorst()
         {
-            for (int i = series.ClosePrices.Count - 1; i >= 0; i--)
-                if (time == series.OpenTimes[i])
-                    return i;
-            return -1;
+
+
+            if (_canDraw())
+            {
+
+                if (bestCurrency.LastValue != 0)
+                {
+                    
+                    var myOutputBest = this.GetAttributeFrom<OutputAttribute>(bestCurrency.Currency);
+                    ChartText myTextBest = IndicatorArea.DrawText("BestCurrency", "BEST » " + bestCurrency.Currency + " » " + bestCurrency.LastValue.ToString("N2"), Bars.OpenTimes.LastValue, bestCurrency.LastValue, Color.FromName(myOutputBest.LineColor));
+                    myTextBest.IsInteractive = false;
+                    myTextBest.FontSize = 12;
+                    myTextBest.VerticalAlignment = VerticalAlignment.Center;
+                    
+                }
+
+                if (worstCurrency.LastValue != 0)
+                {
+
+                    var myOutputWorst = this.GetAttributeFrom<OutputAttribute>(worstCurrency.Currency);
+                    ChartText myTextWorst = IndicatorArea.DrawText("WorstCurrency", "WORST » " + worstCurrency.Currency + " » " + worstCurrency.LastValue.ToString("N2"), Bars.OpenTimes.LastValue, worstCurrency.LastValue, Color.FromName(myOutputWorst.LineColor));
+                    myTextWorst.IsInteractive = false;
+                    myTextWorst.FontSize = 12;
+                    myTextWorst.VerticalAlignment = VerticalAlignment.Center;
+
+                }
+            }
+
         }
 
         #endregion
