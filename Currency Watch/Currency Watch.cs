@@ -25,13 +25,6 @@ namespace cAlgo
 
         // --> Eventuali enumeratori li mettiamo qui
 
-        public class CurrencyInformation {
-
-            public string Currency = "";
-            public double LastValue = 0;
-
-        }
-
         #endregion
 
         #region Identity
@@ -44,7 +37,7 @@ namespace cAlgo
         /// <summary>
         /// La versione del prodotto, progressivo, utilie per controllare gli aggiornamenti se viene reso disponibile sul sito ctrader.guru
         /// </summary>
-        public const string VERSION = "1.0.2";
+        public const string VERSION = "1.0.3";
 
         #endregion
 
@@ -89,9 +82,6 @@ namespace cAlgo
 
         int havecurr = 0;
 
-        CurrencyInformation bestCurrency = new CurrencyInformation();
-        CurrencyInformation worstCurrency = new CurrencyInformation();
-
         double EURUSDopenday = -1;
         double EURGBPopenday = -1;
         double EURJPYopenday = -1;
@@ -127,7 +117,7 @@ namespace cAlgo
 
         double AUDNZDopenday = -1;
 
-        private readonly string[] EURcross =
+        private readonly string[] EURcross = 
         {
             "EURUSD",
             "EURGBP",
@@ -138,7 +128,7 @@ namespace cAlgo
             "EURNZD"
         };
 
-        private readonly string[] USDcross =
+        private readonly string[] USDcross = 
         {
             "EURUSD",
             "GBPUSD",
@@ -149,7 +139,7 @@ namespace cAlgo
             "NZDUSD"
         };
 
-        private readonly string[] GBPcross =
+        private readonly string[] GBPcross = 
         {
             "EURGBP",
             "GBPUSD",
@@ -160,7 +150,7 @@ namespace cAlgo
             "GBPNZD"
         };
 
-        private readonly string[] JPYcross =
+        private readonly string[] JPYcross = 
         {
             "EURJPY",
             "USDJPY",
@@ -171,7 +161,7 @@ namespace cAlgo
             "NZDJPY"
         };
 
-        private readonly string[] CADcross =
+        private readonly string[] CADcross = 
         {
             "EURCAD",
             "USDCAD",
@@ -182,7 +172,7 @@ namespace cAlgo
             "NZDCAD"
         };
 
-        private readonly string[] CHFcross =
+        private readonly string[] CHFcross = 
         {
             "EURCHF",
             "USDCHF",
@@ -193,7 +183,7 @@ namespace cAlgo
             "NZDCHF"
         };
 
-        private readonly string[] AUDcross =
+        private readonly string[] AUDcross = 
         {
             "EURAUD",
             "AUDUSD",
@@ -204,7 +194,7 @@ namespace cAlgo
             "AUDNZD"
         };
 
-        private readonly string[] NZDcross =
+        private readonly string[] NZDcross = 
         {
             "EURNZD",
             "NZDUSD",
@@ -226,7 +216,7 @@ namespace cAlgo
         {
 
             // --> Stampo nei log la versione corrente
-            Print("{0} : {1}", NAME, VERSION);            
+            Print("{0} : {1}", NAME, VERSION);
 
         }
 
@@ -240,7 +230,8 @@ namespace cAlgo
             if (Bars.TimeFrame > TimeFrame.Hour)
             {
 
-                if (_canDraw()) Chart.DrawStaticText("MyError", "PLEASE, USE THIS INDICATOR WITH TIMEFRAME UP TO 1H", VerticalAlignment.Center, HorizontalAlignment.Center, Color.Red);
+                if (_canDraw())
+                    Chart.DrawStaticText("MyError", "PLEASE, USE THIS INDICATOR WITH TIMEFRAME UP TO 1H", VerticalAlignment.Center, HorizontalAlignment.Center, Color.Red);
 
                 return;
 
@@ -256,8 +247,6 @@ namespace cAlgo
             }
 
             havecurr = -1;
-            bestCurrency = new CurrencyInformation();
-            worstCurrency = new CurrencyInformation();
 
             SetValue(EUR, index, "EUR", EURcross);
             SetValue(USD, index, "USD", USDcross);
@@ -267,15 +256,15 @@ namespace cAlgo
             SetValue(CHF, index, "CHF", CHFcross);
             SetValue(AUD, index, "AUD", AUDcross);
             SetValue(NZD, index, "NZD", NZDcross);
-                        
-            DrawBestandWorst();
+
+            // --> DrawBestandWorst();
 
         }
 
         #endregion
 
         #region Private Methods
-        
+
         private T GetAttributeFrom<T>(string propertyName)
         {
             var attrType = typeof(T);
@@ -639,8 +628,7 @@ namespace cAlgo
                     }
 
 
-                }
-                catch (Exception)
+                } catch (Exception)
                 {
 
                     //Print(string.Format("Errore : {0}", exc.Message));
@@ -650,54 +638,32 @@ namespace cAlgo
             }
 
             View[index] = crosspips;
-
-            if (bestCurrency.LastValue == 0 || View[index] > bestCurrency.LastValue)
-            {
-
-                bestCurrency.LastValue = View[index];
-                bestCurrency.Currency = CROSSSymbol;
-                
-            }
-            else if (worstCurrency.LastValue == 0 || View[index] < worstCurrency.LastValue)
-            {
-
-                worstCurrency.LastValue = View[index];
-                worstCurrency.Currency = CROSSSymbol;
-
-            }
-
             havecurr = 1;
+
+            DrawLabel(CROSSSymbol, View[index]);
 
         }
 
-        private void DrawBestandWorst()
+        private void DrawLabel( string CrossLabel, double CrossPrice)
         {
 
 
             if (_canDraw())
             {
 
-                if (bestCurrency.LastValue != 0)
-                {
-                    
-                    var myOutputBest = this.GetAttributeFrom<OutputAttribute>(bestCurrency.Currency);
-                    ChartText myTextBest = IndicatorArea.DrawText("BestCurrency", "BEST » " + bestCurrency.Currency + " » " + bestCurrency.LastValue.ToString("N2"), Bars.OpenTimes.LastValue, bestCurrency.LastValue, Color.FromName(myOutputBest.LineColor));
-                    myTextBest.IsInteractive = false;
-                    myTextBest.FontSize = 12;
-                    myTextBest.VerticalAlignment = VerticalAlignment.Center;
-                    
-                }
+                CrossLabel = CrossLabel.Trim();
 
-                if (worstCurrency.LastValue != 0)
+                if (CrossLabel.Length > 0)
                 {
 
-                    var myOutputWorst = this.GetAttributeFrom<OutputAttribute>(worstCurrency.Currency);
-                    ChartText myTextWorst = IndicatorArea.DrawText("WorstCurrency", "WORST » " + worstCurrency.Currency + " » " + worstCurrency.LastValue.ToString("N2"), Bars.OpenTimes.LastValue, worstCurrency.LastValue, Color.FromName(myOutputWorst.LineColor));
-                    myTextWorst.IsInteractive = false;
-                    myTextWorst.FontSize = 12;
-                    myTextWorst.VerticalAlignment = VerticalAlignment.Center;
+                    var myOutputLabel = this.GetAttributeFrom<OutputAttribute>(CrossLabel);
+                    ChartText myTextLabel = IndicatorArea.DrawText(CrossLabel, CrossLabel + " » " + CrossPrice.ToString("N2"), Bars.OpenTimes.LastValue, CrossPrice, Color.FromName(myOutputLabel.LineColor));
+                    myTextLabel.IsInteractive = false;
+                    myTextLabel.FontSize = 12;
+                    myTextLabel.VerticalAlignment = VerticalAlignment.Center;
 
                 }
+
             }
 
         }
